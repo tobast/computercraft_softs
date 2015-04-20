@@ -292,6 +292,7 @@ function craftRecipe(recipeId,number)
 end
 
 function doCraft(recipeId, numCrafts)
+	numCrafts = tonumber(numCrafts)
 	local requirements = getRequirements(recipeId,numCrafts)
 
 	for _,step in pairs(CRAFT_ORDER) do
@@ -304,7 +305,6 @@ function doCraft(recipeId, numCrafts)
 	end
 
 	local carryPack = STACK_SIZES[recipeId]
-	print(numCrafts)
 	while(numCrafts > 0) do
 		local carrying = math.min(carryPack, numCrafts)
 		goToPos(TEMP_CHEST_POS)
