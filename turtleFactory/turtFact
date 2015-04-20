@@ -287,8 +287,11 @@ function doCraft(recipeId, number)
 	local requirements = getRequirements(recipeId,number)
 
 	for _,step in pairs(CRAFT_ORDER) do
-		if(requirements[step] > 0) then
-			craftRecipe(step,requirements[step])
+		local stackSize = STACK_SIZES[step]
+		while(requirements[step] > 0) do
+			local processing = math.min(stackSize,requirements[step])
+			craftRecipe(step,processing)
+			requirements[step] = requirements[step] - processing
 		end
 	end
 
