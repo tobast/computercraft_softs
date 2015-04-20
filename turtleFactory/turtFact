@@ -119,7 +119,10 @@ function goToPos(pos)
 	end
 end
 
-function getFromBlock(recipeId, number)
+function getFromBlock(recipeId, number, toSlot)
+	if(toSlot == nil) then
+		toSlot = 1
+	end
 	while true do
 		inv = peripheral.wrap('bottom')
 		inv.condenseItems()
@@ -129,7 +132,7 @@ function getFromBlock(recipeId, number)
 			if(obj ~= nil and obj.raw_name == CC_NAMES[recipeId]) then
 				--Since we've condensed and we are assured that number < stackSize
 				--we can safely take only from the first slot we find
-				inv.pushItemIntoSlot(PROD_LINE_ORIENTATION,slot,number,1)
+				inv.pushItemIntoSlot(PROD_LINE_ORIENTATION,slot,number,toSlot)
 				return
 			end
 		end
@@ -248,8 +251,7 @@ function craftRecipe(recipeId,number)
 			for i=1,3 do
 				for j=1,3 do
 					if(recipe[i][j] ~= 1) then -- not air
-						turtle.select(i*4+j+1)
-						getFromBlock(recipe[i][j], number)
+						getFromBlock(recipe[i][j], number,i*4+j+1)
 					end
 				end
 			end
