@@ -1,0 +1,236 @@
+--[[
+	Serveur d'authentification. Réagit aux requêtes réseau
+	d'identification, crée des badges.
+	Système de protection : hachage sha-256.
+
+	Dépendances :
+	- slot_sig
+	- sha256
+--]]
+
+os.loadAPI('/lib/slot_sig')
+os.loadAPI('/lib/sha256')
+
+------------- PARAMETERS --------------
+ID_READER_SIDE='left'
+ID_MAKER_SIDE='right'
+MODEM_SIDE='back'
+MAINTENANCE_STR='MAINTENANCE'
+------------- END PARAMS --------------
+
+local hashDb = {}
+local id_maker_auth = {} -- set of authorized IDs to create IDs.
+
+os.pullEvent = os.pullEventRaw -- No return to terminal.
+
+function rednetSend(to, message)
+	rednet.send(to, message)
+end
+
+function authRequest(senderId, data, distance)
+	if (hashDb[data.hash] ~= nil) then
+		rednetSend(senderId, hashDb[data.hash])
+	else
+		rednetSend(senderId, -1)
+	end
+end
+
+function onRednet(input)
+	---EVENT: rednet_message
+	senderId = input[1]
+	if (type(input[2]) == 'string') then
+		data = textutils.unserialize(input[2])
+		
+		if (data.reqtype == 'auth') then
+			authRequest(senderId, data, distance)
+		end
+	end
+end
+
+----------- LOCAL ID FUNCTIONS -----------
+
+function checkAuth()
+	if not disk.hasData(ID_READER_SIDE) then
+		return false
+	end
+
+	loc = '/'..disk.getMountPath(ID_READER_SIDE)..'/key'
+	fileHandle = fs.open(loc,'r')
+	if fileHandle == nil then
+		return false
+	end
+	key = fileHandle.readLine()
+	fileHandle.close()
+
+	if key==MAINTENANCE_STR then
+		slot_sig.quit()
+	end
+
+	keyHash = sha256.sha256(key)
+	keyId = hashDb[keyHash]
+	
+	if keyId == nil or id_maker_auth[keyId] ~= true then
+		return false
+	end
+	return true
+end
+
+function createKey()
+	key = ""
+	for i=1,2048 do
+		key = key..string.char(math.random(33,126))
+	end
+	return key
+end
+
+function createID(idName, isMaster)
+	if not(disk.isPresent(ID_MAKER_SIDE)) then
+		printError("ID removed.")
+	end
+	disk.setLabel(ID_MAKER_SIDE, 'ID: '..idName)
+	mountpath = disk.getMountPath(ID_MAKER_SIDE)
+	keyHandle = fs.open(mountpath..'/key', 'w')
+
+	key = createKey()
+	hash = sha256.sha256(key)
+
+	hashDb[hash] = idName
+	if(isMaster) then
+		id_maker_auth[idName] = true
+	end
+	
+	keyHandle.writeLine(key)
+	keyHandle.close()
+	disk.eject(ID_MAKER_SIDE)
+end
+
+function onDiskInsert(data)
+	--- SIGNAL: disk
+	side = data[1]
+	if(side == ID_READER_SIDE) then
+		isAuth = checkAuth()
+		authorizedId(isAuth)
+	elseif(side == ID_MAKER_SIDE) then
+		if(checkAuth()) then
+			-- Logged in, and creating a new card
+			newId = getInput("Please type in the new ID:")
+			isMaster = (getInput("Register as master ID (yes/no)?") == 'yes')
+			createID(newId, isMaster)
+			disk.eject(ID_READER_SIDE)
+			writeDB('/auth/hashdb',hashDb)
+			if(isMaster) then
+				writeDB('/auth/idmakerdb',id_maker_auth)
+			end
+		else
+			printError("Please insert your ID.")
+			disk.eject(ID_MAKER_SIDE)
+		end
+	end
+end
+
+function onDiskRemoved(data)
+	-- SIGNAL: disk_eject
+	side = data[1]
+	if(side == ID_READER_SIDE) then
+		authorizedId(false)
+		disk.eject(ID_MAKER_SIDE)
+	end
+end
+
+----------- GUI FUNCTIONS ----------------
+
+function serverRunning(isRunning)
+	term.setCursorPos(1,1)
+	if(isRunning) then
+		term.setBackgroundColor(colors.lime)
+		term.write("Server running")
+	else
+		term.setBackgroundColor(colors.red)
+		term.write("Server offline")
+	end
+	term.setBackgroundColor(colors.black)
+end
+
+function authorizedId(isAuth)
+	term.setCursorPos(16,1)
+	if isAuth then
+		term.setBackgroundColor(colors.lime)
+		term.write("Logged in ")
+	else
+		term.setBackgroundColor(colors.red)
+		term.write("Not logged")
+	end
+	term.setBackgroundColor(colors.black)
+end
+
+function clearLine(lineId)
+	term.setCursorPos(1,lineId)
+	term.clearLine()
+end
+
+function printError(str)
+	term.setCursorPos(1,3)
+	term.clearLine()
+	term.setTextColor(colors.red)
+	term.write(str)
+	term.setTextColor(colors.black)
+end
+
+function getInput(prompt)
+	term.setCursorPos(1,5)
+	term.write(prompt.." ")
+	out = read()
+	term.setCursorPos(1,5)
+	term.clearLine()
+	return out
+end
+
+function mainscreen()
+	term.clear()
+	serverRunning(true)
+	authorizedId(checkAuth())
+end
+
+-------- FS FUNCTIONS ----------------
+
+function loadDB(path)
+	handle = fs.open(path, 'r')
+	if(handle == nil) then
+		return {}
+	end
+	var = textutils.unserialize(handle.readAll())
+	handle.close()
+
+	if var == nil then
+		return {}
+	end
+	return var
+end
+
+function writeDB(path,var)
+	handle = fs.open(path,'w')
+	if(handle == nil) then
+		return
+	end
+	handle.write(textutils.serialize(var))
+	handle.close()
+end
+
+-------- MAIN FUNCTION ---------------
+
+function main()
+	hashDb = loadDB('/auth/hashdb')
+	id_maker_auth = loadDB('/auth/idmakerdb')
+
+	rednet.open(MODEM_SIDE)
+	rednet.host("auth", "server")
+
+	mainscreen()
+	
+	slot_sig.connectSlot('rednet_message', onRednet)
+	slot_sig.connectSlot('disk', onDiskInsert)
+	slot_sig.connectSlot('disk_eject', onDiskRemoved)
+	slot_sig.run()
+end
+main()
+
