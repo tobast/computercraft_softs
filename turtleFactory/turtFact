@@ -194,6 +194,10 @@ function getRequirements(recipeId, number, requirements,leftovers)
 		end
 	end
 
+	if(recipeId == 1) then -- air
+		return requirements
+	end
+
 	local tool = RECIPES[recipeId].tool
 	local nNumber = math.max(0,number-leftovers[recipeId])
 	leftovers[recipeId] = math.max(0,leftovers[recipeId] - number)
@@ -238,7 +242,6 @@ function craftRecipe(recipeId,number)
 		for i=1,3 do for j=1,3 do
 			maxProcessPack = math.min(STACK_SIZES[recipe[i][j]], maxProcessPack)
 		end end
-		number = math.ceil(number / CRAFT_RATIO[recipeId])
 
 		while number > 0 do
 			goToPos(TEMP_CHEST_POS)
@@ -269,8 +272,7 @@ function craftRecipe(recipeId,number)
 		end
 
 		goToPos(TEMP_CHEST_POS)
-		local reqNum = math.ceil(number / CRAFT_RATIO[recipeId])
-		getFromBlock(RECIPES[recipeId].material, reqNum)
+		getFromBlock(RECIPES[recipeId].material, number)
 
 		goToPos(toolPos)
 		processInMF()
