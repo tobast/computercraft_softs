@@ -44,7 +44,7 @@ NAMES_ENUM = makeEnum(RECIPES_NAMES)
 
 CC_NAMES = {'','ic2.itemplateiron','ic2.itemplatetin','ic2.itemcasingtin',
 	'ic2.itemtincable','ic2.itemtincablei','ic2.itembatredischarged',
-	'ic2.itemcableo','ic2.itemcable','ic2.itempartcircuit','ic2.itemironcasing',
+	'ic2.itemcableo','ic2.itemcable','ic2.itempartcircuit','ic2.itemcasingiron',
 	'ic2.itempartcoil','ic2.itempartelemotor','ic2.itempowerunit',
 	'ic2.itemtoolchainsaw','ic2.itemtooldrill', 'ic2.itemingottin',
 	'item.ingotiron','ic2.itemrubber','ic2.itemingotcopper','item.redstone'
