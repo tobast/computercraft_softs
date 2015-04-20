@@ -204,9 +204,8 @@ function getRequirements(recipeId, number, requirements,leftovers)
 
 	requirements[recipeId] = requirements[recipeId] + nbCrafts
 
-	if(tool == 'raw') then -- ___RAW___
-		requirements[recipeId] = requirements[recipeId]+nbCrafts
-	elseif(tool == 'craft') then -- ___CRAFT___
+	-- If raw, nothing else to do
+	if(tool == 'craft') then -- ___CRAFT___
 		local recipe = RECIPES[recipeId].recipe
 		for i=1,3 do for j=1,3 do
 			requirements=getRequirements(recipe[i][j], nbCrafts,
