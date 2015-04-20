@@ -1,0 +1,324 @@
+function makeEnum(vals)
+	-- Expects vals to be a numeric array, ie vals = {blah,blah2, ...}
+	out = {}
+	for k,v in pairs(vals) do
+		out[v]=k
+	end
+	return out
+end
+
+--================ ASSEMBLY LINE FORMAT ================--
+-- Each var describes the position of a block along the production line.
+-- The turtle will attempt to seek those blocks on its bottom, and starts
+-- at position 0.
+INPUT_CHEST_POS = 0
+MF_EXTRUDE_POS = 1
+TEMP_CHEST_POS = 2
+MF_ROLL_POS = 3
+OUTPUT_CHEST_POS = 4
+
+PROD_LINE_ORIENTATION = 'up' -- the direction the turtle is from the
+	-- production line's point of view.
+
+--================ GENERATE RECIPES =====================--
+--[[ Recipe format : table 't'
+	* t.tool = raw | craft | mf_roll | mf_extrude
+	* if raw : the material is a raw material, gathered from input chest.
+	* if craft:
+		o t.recipe = 3*3 array, recipe. Values belong to recipes enum.
+		o Must be crafted as turtle craft.
+	* if mf_roll:
+		o Must be processed by a metal former in roll mode
+		o t.material : belongs to the recipes enum, to be fed to the MF
+	* if mf_extrude:
+		o Must be processed by a metal former in extrude mode
+		o t.material : idem mf_roll
+--]]
+
+RECIPES_NAMES = { 'air','iron_plate','tin_plate','tin_casing','tin_cable',
+	'tin_ins_cable','re_batt','copper_cable','copper_ins_cable',
+	'elec_circ','iron_casing','coil','elec_motor','power_unit',
+	'chainsaw','drill','tin','iron','rubber','copper','redstone' }
+
+NAMES_ENUM = makeEnum(RECIPES_NAMES)
+
+CC_NAMES = {'','ic2.itemplateiron','ic2.itemplatetin','ic2.itemcasingtin',
+	'ic2.itemtincable','ic2.itemtincablei','ic2.itembatredischarged',
+	'ic2.itemcableo','ic2.itemcable','ic2.itempartcircuit','ic2.itemironcasing',
+	'ic2.itempartcoil','ic2.itempartelemotor','ic2.itempowerunit',
+	'ic2.itemtoolchainsaw','ic2.itemtooldrill', 'ic2.itemingottin',
+	'item.ingotiron','ic2.itemrubber','ic2.itemingotcopper','item.redstone'
+}
+REVERSE_CC_NAMES = makeEnum(CC_NAMES)
+
+STACK_SIZES = {64,64,64,64,64,64,16,64,64,64,64,64,64,64,1,1,64,64,64,64,64}
+CRAFT_RATIO = {1,1,1,2,3,1,1,3,1,1,2,1,1,1,1,1,1,1,1,1,1}
+CRAFT_ORDER = {1,17,18,19,20,21,2,3,4,5,8,11,6,9,7,10,12,13,14,15,16}
+
+RECIPES = {}
+RECIPES[NAMES_ENUM['air']] = { tool='raw' }
+RECIPES[NAMES_ENUM['iron_plate']] = { tool='mf_roll', material=NAMES_ENUM['iron'] }
+RECIPES[NAMES_ENUM['tin_plate']] = { tool='mf_roll', material=NAMES_ENUM['tin'] }
+RECIPES[NAMES_ENUM['tin_casing']] = { tool='mf_roll',
+	material=NAMES_ENUM['tin_plate'] }
+RECIPES[NAMES_ENUM['tin_cable']] = { tool='mf_extrude', material=NAMES_ENUM['tin'] }
+RECIPES[NAMES_ENUM['tin_ins_cable']] = { tool='craft', recipe={
+	{NAMES_ENUM['tin_cable'],NAMES_ENUM['rubber'],1},{1,1,1},{1,1,1}} }
+RECIPES[NAMES_ENUM['re_batt']] = { tool='craft', recipe={
+	{1,NAMES_ENUM['tin_ins_cable'],1},
+	{NAMES_ENUM['tin_casing'],NAMES_ENUM['redstone'],NAMES_ENUM['tin_casing']},
+	{NAMES_ENUM['tin_casing'],NAMES_ENUM['redstone'],NAMES_ENUM['tin_casing']}}}
+RECIPES[NAMES_ENUM['copper_cable']] = { tool='mf_extrude',
+	material=NAMES_ENUM['copper'] }
+RECIPES[NAMES_ENUM['copper_ins_cable']] = { tool='craft', recipe={
+	{NAMES_ENUM['copper_cable'],NAMES_ENUM['rubber'],1},{1,1,1},{1,1,1}} }
+RECIPES[NAMES_ENUM['elec_circ']] = { tool='craft', recipe={
+	{NAMES_ENUM['copper_ins_cable'],NAMES_ENUM['copper_ins_cable'],NAMES_ENUM['copper_ins_cable']},
+	{NAMES_ENUM['redstone'],NAMES_ENUM['iron_plate'],NAMES_ENUM['redstone']},
+	{NAMES_ENUM['copper_ins_cable'],NAMES_ENUM['copper_ins_cable'],NAMES_ENUM['copper_ins_cable']}}}
+RECIPES[NAMES_ENUM['iron_casing']] = { tool='mf_roll',
+	material=NAMES_ENUM['iron_plate'] }
+RECIPES[NAMES_ENUM['coil']] = { tool='craft', recipe={
+	{NAMES_ENUM['copper_cable'],NAMES_ENUM['copper_cable'],NAMES_ENUM['copper_cable']},
+	{NAMES_ENUM['copper_cable'],NAMES_ENUM['iron'],NAMES_ENUM['copper_cable']},
+	{NAMES_ENUM['copper_cable'],NAMES_ENUM['copper_cable'],NAMES_ENUM['copper_cable']}}}
+RECIPES[NAMES_ENUM['elec_motor']] = { tool='craft', recipe={
+	{1,NAMES_ENUM['tin_casing'],1},
+	{NAMES_ENUM['coil'],NAMES_ENUM['iron'],NAMES_ENUM['coil']},
+	{1,NAMES_ENUM['tin_casing'],1}}}
+RECIPES[NAMES_ENUM['power_unit']] = { tool='craft', recipe={
+	{NAMES_ENUM['re_batt'],NAMES_ENUM['copper_cable'],NAMES_ENUM['iron_casing']},
+	{NAMES_ENUM['re_batt'],NAMES_ENUM['elec_circ'],NAMES_ENUM['elec_motor']},
+	{NAMES_ENUM['re_batt'],NAMES_ENUM['copper_cable'],NAMES_ENUM['iron_casing']}}}
+RECIPES[NAMES_ENUM['chainsaw']] = { tool='craft', recipe={
+	{1,NAMES_ENUM['iron_plate'],NAMES_ENUM['iron_plate']},
+	{NAMES_ENUM['iron_plate'],NAMES_ENUM['iron_plate'],NAMES_ENUM['iron_plate']},
+	{NAMES_ENUM['power_unit'],NAMES_ENUM['iron_plate'],1}}}
+RECIPES[NAMES_ENUM['drill']] = { tool='craft', recipe={
+	{1,NAMES_ENUM['iron_plate'],1},
+	{NAMES_ENUM['iron_plate'],NAMES_ENUM['iron_plate'],NAMES_ENUM['iron_plate']},
+	{NAMES_ENUM['iron_plate'],NAMES_ENUM['power_unit'],NAMES_ENUM['iron_plate']}}}
+RECIPES[NAMES_ENUM['tin']] = { tool='raw' }
+RECIPES[NAMES_ENUM['iron']] = { tool='raw' }
+RECIPES[NAMES_ENUM['rubber']] = { tool='raw' }
+RECIPES[NAMES_ENUM['copper']] = { tool='raw' }
+RECIPES[NAMES_ENUM['redstone']] = { tool='raw' }
+
+--=================== END CONSTANTS ========================--
+
+turtlePos = -1
+
+function goToPos(pos)
+	while(pos > turtlePos) do
+		turtle.forward()
+		turtlePos = turtlePos + 1
+	end
+	while(pos < turtlePos) do 
+		turtle.back()
+		turtlePos = turtlePos - 1
+	end
+end
+
+function getFromBlock(recipeId, number)
+	while true do
+		inv = peripheral.wrap('bottom')
+		inv.condenseItems()
+		nbSlots = inv.getInventorySize()
+		for slot=1,nbSlots do
+			obj = inv.getStackInSlot(slot)
+			if(obj ~= nil and obj.raw_name == CC_NAMES[recipeId]) then
+				--Since we've condensed and we are assured that number < stackSize
+				--we can safely take only from the first slot we find
+				inv.pushItemIntoSlot(PROD_LINE_ORIENTATION,slot,number,1)
+				return
+			end
+		end
+		-- We've tried the whole inventory! The item is not present
+		print('Missing '..RECIPES_NAMES[recipeId].." x"..number)
+		print('Press enter to try again...')
+		read()
+	end
+end
+
+function pushInTemp(fromSlot)
+	goToPos(TEMP_CHEST_POS)
+	local inv = peripheral.wrap('bottom')
+	inv.pullItemIntoSlot(PROD_LINE_ORIENTATION,fromSlot)
+	inv.condenseItems()
+end
+
+function pushToOutput(number)
+	-- Pushes <number> items from #1 and puts it into output chest
+	goToPos(OUTPUT_CHEST_POS)
+	
+	ch = peripheral.wrap('bottom')
+	ch.pullItem(PROD_LINE_ORIENTATION, 1, number)
+end
+
+function processInMF()
+	-- Assumes the turtle to be above the right MF, puts everything from #1
+	-- into MF and waits to take it back.
+
+	-- MF input slot: 7 ; output slot: 2
+	mf = peripheral.wrap('bottom')
+	mf.pullItem(PROD_LINE_ORIENTATION, 1, nil, 7)
+	while mf.getStackInSlot(7) ~= nil or mf.getProgress() < 100 do
+		os.sleep(1)
+	end -- We're now done
+	mf.pushItem(PROD_LINE_ORIENTATION, 2, nil, 1)
+end
+
+function getRequirements(recipeId, number, requirements,leftovers)
+	local isRootCall = false
+
+	-- init
+	if(requirements == nil) then
+		isRootCall = true
+		requirements = {}
+		leftovers = {}
+		for k,_ in pairs(RECIPES_NAMES) do
+			requirements[k]=0
+			leftovers[k]=0
+		end
+
+		goToPos(TEMP_CHEST_POS)
+		local ch = peripheral.wrap('bottom')
+		local nbSlots = ch.getInventorySize()
+
+		for slot=1,nbSlots do
+			contents = ch.getStackInSlot(slot)
+			if(contents ~= nil) then
+				slotRecipe = REVERSE_CC_NAMES[contents.raw_name]
+				leftovers[slotRecipe] = leftovers[slotRecipe] + contents.qty
+			end
+		end
+	end
+
+	local tool = RECIPES[recipeId].tool
+	local nNumber = math.max(0,number-leftovers[recipeId])
+	leftovers[recipeId] = math.max(0,leftovers[recipeId] - number)
+	number = nNumber
+	local nbCrafts = math.ceil(number/CRAFT_RATIO[recipeId])
+	leftovers[recipeId] = leftovers[recipeId] +
+		(CRAFT_RATIO[recipeId] - number) % CRAFT_RATIO[recipeId]
+
+	requirements[recipeId] = requirements[recipeId] + nbCrafts
+
+	if(tool == 'raw') then -- ___RAW___
+		requirements[recipeId] = requirements[recipeId]+nbCrafts
+	elseif(tool == 'craft') then -- ___CRAFT___
+		local recipe = RECIPES[recipeId].recipe
+		for i=1,3 do for j=1,3 do
+			requirements=getRequirements(recipe[i][j], nbCrafts,
+				requirements,leftovers)
+		end end
+	elseif(tool == 'mf_roll' or tool == 'mf_extrude') then --___MF___
+		requirements = getRequirements(RECIPES[recipeId].material, nbCrafts,
+				requirements,leftovers)
+	end
+	
+	return requirements
+end
+
+function craftRecipe(recipeId,number)
+	-- Crafts [number] items, then put them in the temp chest
+	-- Assumes number <= stackSize
+
+	local tool = RECIPES[recipeId].tool
+	if(tool == 'raw') then
+		if(recipeId == 1) then -- air, ie nothing
+			return -- We're done ;)
+		end
+
+		goToPos(INPUT_CHEST_POS)
+		getFromBlock(recipeId,number)
+		pushInTemp(1)
+	elseif(tool == 'craft') then
+		local recipe = RECIPES[recipeId].recipe
+		local maxProcessPack = 0
+		for i=1,3 do for j=1,3 do
+			maxProcessPack = math.min(STACK_SIZES[recipe[i][j]], maxProcessPack)
+		end end
+		number = math.ceil(number / CRAFT_RATIO[recipeId])
+
+		while number > 0 do
+			goToPos(TEMP_CHEST_POS)
+			for i=1,3 do
+				for j=1,3 do
+					if(recipe[i][j] ~= 1) then -- not air
+						getFromBlock(recipe[i][j], number)
+						turtle.transferTo(i*4+j+1)
+					end
+				end
+			end
+			turtle.craft(maxProcessPack)
+			
+			pushInTemp(1)
+			
+			number = number - maxProcessPack -- Might be below the real number
+			-- but it is okay
+		end
+	elseif(tool == 'mf_roll' or tool == 'mf_extrude') then
+		-- Now we have all we want in first slot (maybe more?)
+		local toolPos = -1
+		if(tool == 'mf_roll') then
+			toolPos = MF_ROLL_POS
+		elseif(tool == 'mf_extrude') then
+			toolPos = MF_EXTRUDE_POS
+		else
+			error("Dafuq, invalid tool")
+		end
+
+		goToPos(TEMP_CHEST_POS)
+		local reqNum = math.ceil(number / CRAFT_RATIO[recipeId])
+		getFromBlock(RECIPES[recipeId].material, reqNum)
+
+		goToPos(toolPos)
+		processInMF()
+		pushInTemp(1)
+	end
+end
+
+function doCraft(recipeId, number)
+	local requirements = getRequirements(recipeId,number)
+
+	for _,step in pairs(CRAFT_ORDER) do
+		if(requirements[step] > 0) then
+			craftRecipe(step,requirements[step])
+		end
+	end
+
+	goToPos(TEMP_CHEST_POS)
+	getFromBlock(recipeId, number)
+	goToPos(OUTPUT_CHEST_POS)
+	local ch=peripheral.wrap('bottom')
+	ch.pullItem(PROD_LINE_ORIENTATION,1)
+	goToPos(-1)
+end
+
+function craftName(name, number)
+	if(NAMES_ENUM[name] == nil) then
+		print("Invalid name")
+	else
+		doCraft(NAMES_ENUM[name],number)
+	end
+end
+
+function dispRequirements(name, number)
+	local req = getRequirements(NAMES_ENUM[name], number)
+	goToPos(-1)
+	str = ''
+	parity = 0
+	for k,v in pairs(req) do
+		if(parity % 2 == 0 and parity ~= 0) then
+			print(str)
+			str=''
+		elseif(parity % 2 == 1) then
+			str = str .. ' || '
+		end
+		str = str .. RECIPES_NAMES[k]..' '..v
+		parity = parity + 1
+	end
+	print(str)
+end
+
