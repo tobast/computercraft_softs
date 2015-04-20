@@ -1,1 +1,64 @@
-../../slot_sig.lua
+--[[
+  API slot_sig by Théophile ``Tobast'' Bastian.
+  Completely changes the way to program with a slot/signal
+  way, Qt-like.
+
+  Copyright (C) 2014  BASTIAN Theophile
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/gpl.txt>.
+--]]
+
+
+local slots = {}
+local quitRequired = false
+
+--- Connects a new slot.
+-- @param id signal identifier
+-- @param callback slot function to call on signal
+function connectSlot(id, callback, obj)
+	if (slots[id] == nil) then
+		slots[id] = {}
+	end
+	if obj == nil then
+		table.insert(slots[id], callback)
+	else
+		table.insert(slots[id], function (arg) callback(obj,arg) end)
+	end
+end
+
+--- Fires a signal.
+-- @param id signal identifier
+-- @param params parameters for the callbacks
+function fireSignal(id, params)
+	if (slots[id] ~= nil) then
+		for _,slot in pairs(slots[id]) do
+			slot(params)
+		end
+	end
+end
+
+--- Runs the main loop of the program.
+function run()
+	while not quitRequired do
+		a = {}
+		evt,a[1],a[2],a[3],a[4],a[5] = os.pullEvent()
+		fireSignal(evt, a)
+	end
+end
+
+--- Quits the program as soon as it have processed the current event
+function quit()
+	quitRequired = true
+end
+

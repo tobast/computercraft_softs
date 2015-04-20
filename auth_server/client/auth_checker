@@ -1,1 +1,101 @@
-../auth_checker.lua
+--[[
+	Auth_checker by Théophile Bastian
+	Vérifie une identité auprès du serveur d'authentification.
+
+	Dépendances
+	- sha256
+	- slot_sig
+--]]
+
+------------- PARAMETERS --------------
+ID_READER_SIDE = 'left'
+MODEM_SIDE='top'
+
+function onAllowed()
+	redstone.setOutput('bottom',true)
+	sleep(3)
+	redstone.setOutput('bottom',false)
+end
+------------- END PARAMS --------------
+
+os.loadAPI('/lib/sha256')
+os.loadAPI('/lib/slot_sig')
+
+local allowed = {}
+local server = -1
+local nextTimer = nil
+
+function getHash()
+	path = '/'..disk.getMountPath(ID_READER_SIDE)..'/key'
+
+	handle = fs.open(path,'r')
+	if(handle == nil) then
+		return ""
+	end
+
+	key = handle.readAll()
+	handle.close()
+
+	hash = sha256.sha256(key)
+	return hash
+end
+
+function onRednet(data)
+	sender = data[1]
+	if(type(data[2]) == 'string') then
+		id = data[2]
+
+		if(sender ~= server) then 
+			return
+		else
+			if(allowed[id]) then
+				onAllowed()
+			end
+		end
+	end
+end
+
+function requestAuth(hash)
+	if(server == nil) then -- server still not found
+		return true -- Allow login, to allow anyone in
+	end
+
+	mess = {}
+	mess['reqtype'] = 'auth'
+	mess['hash'] = hash
+	rednet.send(server, textutils.serialize(mess))
+end
+
+function onDiskInserted(data)
+	side=data[1]
+	if side == ID_READER_SIDE then
+		hash = getHash()
+		disk.eject(ID_READER_SIDE)
+		requestAuth(hash)
+	end
+end
+
+function onTimer(data)
+	if(data[1] == nextTimer and server == nil) then
+		server = rednet.lookup('auth','server')
+		if(server == nil) then
+			nextTimer = os.startTimer(5)
+		end
+	end
+end
+
+function main()
+	rednet.open(MODEM_SIDE)
+	server = rednet.lookup('auth','server')
+
+	if(server == nil) then
+		nextTimer = os.startTimer(5)
+	end
+	
+	slot_sig.connectSlot('disk', onDiskInserted)
+	slot_sig.connectSlot('rednet_message', onRednet)
+	slot_sig.connectSlot('timer',onTimer)
+
+	slot_sig.run()
+end
+main()
