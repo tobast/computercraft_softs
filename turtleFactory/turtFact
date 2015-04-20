@@ -312,7 +312,7 @@ function doCraft(recipeId, numCrafts)
 		goToPos(OUTPUT_CHEST_POS)
 		local ch=peripheral.wrap('bottom')
 		ch.pullItem(PROD_LINE_ORIENTATION,1)
-		numCrafts = number - carrying
+		numCrafts = numCrafts - carrying
 	end
 	goToPos(-1)
 end
