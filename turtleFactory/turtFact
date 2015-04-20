@@ -274,12 +274,20 @@ function craftRecipe(recipeId,number)
 			error("Dafuq, invalid tool")
 		end
 
-		goToPos(TEMP_CHEST_POS)
-		getFromBlock(RECIPES[recipeId].material, number)
+		local processPack = math.min(STACK_SIZES[recipeId],
+			math.floor(STACK_SIZES[RECIPES[recipeId].material] / 
+				CRAFT_RATIO[recipeId]))
+		while(number > 0) do
+			local processing = math.min(number, processPack)
+			goToPos(TEMP_CHEST_POS)
+			getFromBlock(RECIPES[recipeId].material, processing)
 
-		goToPos(toolPos)
-		processInMF()
-		pushInTemp(1)
+			goToPos(toolPos)
+			processInMF()
+			pushInTemp(1)
+
+			number = number - processing
+		end
 	end
 end
 
