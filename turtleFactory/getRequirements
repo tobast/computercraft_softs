@@ -1,0 +1,19 @@
+args = {...}
+
+os.loadAPI("/turtFact")
+
+if(args[1] == nil) then
+	error("Missing argument. Args: [recipe name] [number]")
+else
+	if(args[2] == nil) then
+		args[2] = 1
+	end
+	requirements = turtFact.getRequirements(turtFact.NAMES_ENUM[args[1]],args[2])
+
+	for recId,num in pairs(requirements) do
+		if(num > 0 and turtFact.RECIPES[recId].tool == 'raw') then
+			print(turtFact.RECIPES_NAMES[recId]..'   '..num)
+		end
+	end
+end
+

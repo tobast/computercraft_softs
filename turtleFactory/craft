@@ -1,0 +1,13 @@
+args = {...}
+
+os.loadAPI("/turtFact")
+
+if(args[1] == nil) then
+	error("Missing argument. Args: [recipe name] [number]")
+else
+	if(args[2] == nil) then
+		args[2] = 1
+	end
+	turtFact.craftName(args[1],args[2])
+end
+
