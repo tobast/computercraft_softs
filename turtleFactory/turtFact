@@ -304,6 +304,7 @@ function doCraft(recipeId, numCrafts)
 	end
 
 	local carryPack = STACK_SIZES[recipeId]
+	print(numCrafts)
 	while(numCrafts > 0) do
 		local carrying = math.min(carryPack, numCrafts)
 		goToPos(TEMP_CHEST_POS)
