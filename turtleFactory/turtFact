@@ -291,8 +291,8 @@ function craftRecipe(recipeId,number)
 	end
 end
 
-function doCraft(recipeId, number)
-	local requirements = getRequirements(recipeId,number)
+function doCraft(recipeId, numCrafts)
+	local requirements = getRequirements(recipeId,numCrafts)
 
 	for _,step in pairs(CRAFT_ORDER) do
 		local stackSize = STACK_SIZES[step]
@@ -304,14 +304,14 @@ function doCraft(recipeId, number)
 	end
 
 	local carryPack = STACK_SIZES[recipeId]
-	while(number > 0) do
-		local carrying = math.min(carryPack, number)
+	while(numCrafts > 0) do
+		local carrying = math.min(carryPack, numCrafts)
 		goToPos(TEMP_CHEST_POS)
 		getFromBlock(recipeId, carrying)
 		goToPos(OUTPUT_CHEST_POS)
 		local ch=peripheral.wrap('bottom')
 		ch.pullItem(PROD_LINE_ORIENTATION,1)
-		number = number - carrying
+		numCrafts = number - carrying
 	end
 	goToPos(-1)
 end
