@@ -1,0 +1,104 @@
+--[[[
+	Attempts to retreive a given directory from github
+	Retreives the directory from tobast/computercraft_softs from github.
+--]]
+
+RAW_GITHUB_BASEURL='https://raw.githubusercontent.com/tobast/computercraft_softs/master/'
+TREE_GITHUB_BASEURL='https://api.github.com/repos/tobast/computercraft_softs/git/trees/'
+
+function getFileFromGithub(githubpath, localpath)
+	print('Get '..githubpath)
+	local fileContents = http.get(RAW_GITHUB_BASEURL..githubpath).readAll()
+	if(fileContents == nil) then
+		error('Could not fetch raw file '..githubpath)
+	end
+	if(fs.exists(localpath)) then
+		fs.delete(localpath)
+	end
+	local file = io.open(localpath,'w')
+	file:write(fileContents)
+	file:close()
+end
+
+-- Auto-get json lib if not present, to make the script work easily
+if(fs.exists('/lib/json') == false) then
+	fs.makeDir('/lib')
+	getFileFromGithub('github_get/lib/json','/lib/json')
+end
+-- END auto-get json
+os.loadAPI('/lib/json')
+
+function splitStringSlash(str)
+	local pos = str:find('/')
+	if(pos == nil) then
+		return {str,''}
+	else
+		return {str:sub(1,pos-1),str:sub(pos+1)}
+	end
+end
+
+function retrieve(path,root,sha,github_path)
+	if(sha == nil) then
+		sha = 'HEAD'
+	end
+	if(github_path == nil) then
+		github_path = ''
+	end
+
+	local jsonStr = http.get(TREE_GITHUB_BASEURL..sha)
+	if(jsonStr == nil) then
+		error('Could not fetch tree at '..github_path)
+	end
+	local jsonObject = json.decode(jsonStr.readAll())
+	local tree = jsonObject.tree
+
+	if(path == '') then
+		for _,item in pairs(tree) do
+			if(item.type == 'blob') then -- File, get it!
+				getFileFromGithub(github_path..(item.path), root..(item.path))
+			elseif(item.type == 'tree') then
+				fs.makeDir(root..(item.path))
+				retrieve('',root..(item.path)..'/',(item.sha),github_path..(item.path)..'/')
+			end
+		end
+	else
+		local splitted = splitStringSlash(path)
+		local pathHead = splitted[1]
+		local pathTail = splitted[2]
+
+		local found = false
+		for _,item in pairs(tree) do
+			if(item.type == 'tree' and item.path == pathHead) then
+				found = true
+				retrieve(pathTail,root,item.sha,github_path..(item.path)..'/')
+			end
+		end
+		if(found == false) then
+			error(github_path..pathHead..' does not exist!')
+			return
+		end
+	end
+end
+
+function main(argv)
+	if(#argv < 1) then
+		print('Missing argument: path. Exiting.')
+	else
+		local path = argv[1]
+		local root = '/'
+		if(argv[2] ~= nil) then
+			root = argv[2]
+		end
+
+		if(root:sub(#root) ~= '/') then
+			root = root..'/'
+		end
+		if(fs.isDir(root) == false) then
+			fs.makeDir(root)
+		end
+
+		retrieve(path,root)
+	end
+end
+
+main({...})
