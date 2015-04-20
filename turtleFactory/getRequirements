@@ -15,5 +15,6 @@ else
 			print(turtFact.RECIPES_NAMES[recId]..'   '..num)
 		end
 	end
+	turtFact.goToPos(-1)
 end
 
