@@ -303,11 +303,16 @@ function doCraft(recipeId, number)
 		end
 	end
 
-	goToPos(TEMP_CHEST_POS)
-	getFromBlock(recipeId, number)
-	goToPos(OUTPUT_CHEST_POS)
-	local ch=peripheral.wrap('bottom')
-	ch.pullItem(PROD_LINE_ORIENTATION,1)
+	local carryPack = STACK_SIZES[recipeId]
+	while(number > 0) do
+		local carrying = math.min(carryPack, number)
+		goToPos(TEMP_CHEST_POS)
+		getFromBlock(recipeId, carrying)
+		goToPos(OUTPUT_CHEST_POS)
+		local ch=peripheral.wrap('bottom')
+		ch.pullItem(PROD_LINE_ORIENTATION,1)
+		number = number - carrying
+	end
 	goToPos(-1)
 end
 
