@@ -56,6 +56,8 @@ function onRednet(data)
 			local kwg = peripheral.wrap(KWG_SIDE)
 			local rotor = kwg.getStackInSlot(1)
 			outMsg.val = 100 * (rotor.dmg / rotor.max_dmg)
+		elseif(mess.query == 'name') then
+			outMsg.val = NAME
 		end
 
 		rednet.send(sender, outMsg)
