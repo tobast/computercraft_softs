@@ -57,8 +57,11 @@ function onLevelsQuery(requester)
 	data.area=AREA_NAME
 	data.lights = getEUStored(BATBOX_LIGHTS_SIDE)
 	data.lightsPercent = getPercentage(BATBOX_LIGHTS_SIDE)
-	data.others = getEUStored(BATBOX_OTHERS_SIDE)
-	data.othersPercent = getPercentage(BATBOX_OTHERS_SIDE)
+	
+	if(BATBOX_OTHERS_SIDE ~= nil) then
+		data.others = getEUStored(BATBOX_OTHERS_SIDE)
+		data.othersPercent = getPercentage(BATBOX_OTHERS_SIDE)
+	end
 	data.lightsState = state_lights
 	data.othersState = state_others
 
@@ -104,7 +107,7 @@ function setButtonState(side, nState, isForceShutdown)
 	if(side == BATBOX_LIGHTS_SIDE) then
 		btn_lights:setBgColor(color)
 		btn_lights:setText(text)
-	else
+	elseif(BATBOX_OTHERS_SIDE ~= nil) then
 		btn_others:setBgColor(color)
 		btn_others:setText(text)
 	end
@@ -133,8 +136,10 @@ end
 function initStates()
 	setButtonState(BATBOX_LIGHTS_SIDE,
 		not redstone.getOutput(BATBOX_LIGHTS_SIDE), false)
-	setButtonState(BATBOX_OTHERS_SIDE,
-		not redstone.getOutput(BATBOX_OTHERS_SIDE), false)
+	if(BATBOX_OTHERS_SIDE ~= nil) then
+		setButtonState(BATBOX_OTHERS_SIDE,
+			not redstone.getOutput(BATBOX_OTHERS_SIDE), false)
+	end
 end
 
 function periodicUpdate()
@@ -163,16 +168,18 @@ function mainScreen()
 	scr.write(getEUStored(BATBOX_LIGHTS_SIDE))
 	scr.write('EU')
 
-	scr.setCursorPos(1,6)
-	scr.setTextColor(colors.lightBlue)
-	scr.write('OTHERS')
-	scr.setTextColor(colors.white)
-	scr.setCursorPos(3,7)
-	scr.write(getPercentage(BATBOX_OTHERS_SIDE))
-	scr.write('%  ')
-	scr.setCursorPos(3,8)
-	scr.write(getEUStored(BATBOX_OTHERS_SIDE))
-	scr.write('EU')
+	if(BATBOX_OTHERS_SIDE ~= nil) then
+		scr.setCursorPos(1,6)
+		scr.setTextColor(colors.lightBlue)
+		scr.write('OTHERS')
+		scr.setTextColor(colors.white)
+		scr.setCursorPos(3,7)
+		scr.write(getPercentage(BATBOX_OTHERS_SIDE))
+		scr.write('%  ')
+		scr.setCursorPos(3,8)
+		scr.write(getEUStored(BATBOX_OTHERS_SIDE))
+		scr.write('EU')
+	end
 end
 
 function main()
