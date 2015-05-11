@@ -14,19 +14,24 @@ windgens={}
 results={}
 remPackets=0
 
+function truncate(num, prec)
+	local mult = 10^(prec or 0)
+	return math.floor(num * mult + 0.5) / mult
+end
+
 function displayResults()
 	local screen = peripheral.wrap(SCREEN_SIDE)
 	screen.clear()
 	screen.setCursorPos(1,1)
 
-	for _,wg in results do
+	for _,wg in pairs(results) do
 		screen.write(wg.name)
 		local x,y=screen.getCursorPos()
-		screen.setCursorPos(1,y+1)
+		screen.setCursorPos(2,y+1)
 		screen.write("Prod: ")
 		screen.write(wg.energy_prod)
 		screen.write(" EU/t")
-		screen.setCursorPos(1,y+2)
+		screen.setCursorPos(2,y+2)
 		
 		screen.write("Stopped: ")
 		if(wg.state == false) then
@@ -34,10 +39,10 @@ function displayResults()
 		else
 			screen.write("NO")
 		end
-		screen.setCursorPos(1,y+3)
+		screen.setCursorPos(2,y+3)
 
 		screen.write("Rotor: ")
-		screen.write(wg.rotor_dmg_percent)
+		screen.write(truncate(wg.rotor_dmg_percent, 6))
 		screen.write("%")
 
 		screen.setCursorPos(1,y+5)

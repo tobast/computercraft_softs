@@ -55,7 +55,7 @@ function onRednet(data)
 		elseif(mess.query == 'rotor_dmg_percent') then
 			local kwg = peripheral.wrap(KWG_SIDE)
 			local rotor = kwg.getStackInSlot(1)
-			outMsg.val = 100 * (rotor.dmg / rotor.max_dmg)
+			outMsg.val = 100 - 100 * (rotor.dmg / rotor.max_dmg)
 		elseif(mess.query == 'name') then
 			outMsg.val = NAME
 		elseif(mess.query == 'all') then
@@ -64,7 +64,7 @@ function onRednet(data)
 			outMsg.energy_prod = (1/4) * (peripheral.call(KWG_SIDE, 'getMaxKineticEnergy','UNKNOWN'))
 			local kwg = peripheral.wrap(KWG_SIDE)
 			local rotor = kwg.getStackInSlot(1)
-			outMsg.rotor_dmg_percent = 100 * (rotor.dmg / rotor.max_dmg)
+			outMsg.rotor_dmg_percent = 100 - 100 * (rotor.dmg / (rotor.max_dmg))
 			outMsg.name = NAME
 		end
 
