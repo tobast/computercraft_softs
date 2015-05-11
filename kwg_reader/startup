@@ -105,3 +105,5 @@ function main()
 	nextTimer = os.startTimer(1)
 	slot_sig.run()
 end
+
+main()
