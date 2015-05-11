@@ -63,11 +63,7 @@ function onRednet(data)
 		return
 	end
 
-	if(results[wgId] == nil) then
-		results[wgId]={}
-	end
-
-	results[wgId][msg.query] = msg.val
+	results[wgId] = msg
 	remPackets = remPackets - 1
 
 	if(remPackets == 0) then
@@ -85,11 +81,9 @@ function mainLoop(data)
 		windgens[1],windgens[2],windgens[3],windgens[4],windgens[5],windgens[6]=rednet.lookup('kwg')
 	end
 
-	for k,wg in pairs(wingens) do
-		for _,query in pairs(QUERY_TYPES) do
-			rednet.send(wg, {type='query', query=query})
-			remPackets = remPackets+1
-		end
+	for k,wg in pairs(windgens) do
+		rednet.send(wg, {type='query', query='all'})
+		remPackets = remPackets+1
 	end
 
 	iterId=iterId % 10

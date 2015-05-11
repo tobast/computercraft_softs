@@ -51,13 +51,21 @@ function onRednet(data)
 		elseif(mess.query == 'state') then
 			outMsg.val = isCesuLoading
 		elseif(mess.query == 'energy_prod') then
-			outMsg.val = (1/4) * (peripheral.call(KWG_SIDE, 'getMaxKineticEnergy'))
+			outMsg.val = (1/4) * (peripheral.call(KWG_SIDE, 'getMaxKineticEnergy','UNKNOWN'))
 		elseif(mess.query == 'rotor_dmg_percent') then
 			local kwg = peripheral.wrap(KWG_SIDE)
 			local rotor = kwg.getStackInSlot(1)
 			outMsg.val = 100 * (rotor.dmg / rotor.max_dmg)
 		elseif(mess.query == 'name') then
 			outMsg.val = NAME
+		elseif(mess.query == 'all') then
+			outMsg.cesu_load = getCesuLoad()
+			outMsg.state = isCesuLoading
+			outMsg.energy_prod = (1/4) * (peripheral.call(KWG_SIDE, 'getMaxKineticEnergy','UNKNOWN'))
+			local kwg = peripheral.wrap(KWG_SIDE)
+			local rotor = kwg.getStackInSlot(1)
+			outMsg.rotor_dmg_percent = 100 * (rotor.dmg / rotor.max_dmg)
+			outMsg.name = NAME
 		end
 
 		rednet.send(sender, outMsg)
