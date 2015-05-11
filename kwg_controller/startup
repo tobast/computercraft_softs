@@ -1,0 +1,91 @@
+--[[
+	Expected setup (from above)
+		pist
+		kwg   kwg
+		comp  cesu
+
+		where
+		kg: kinetic generator
+		kwg: kinetic wind generator
+		comp: computer
+		pist: piston
+		and redstone links [comp]'s top to [pist]
+	What it does:
+	- Shuts off the kwg by expanding the piston when CESU is above 95%
+	- Starts over the kwg when the CESU is below 20%
+	- Answers to network queries about
+	 o CESU load
+	 o Piston state
+	 o Energy generated
+	 o Rotor damage
+--]]
+
+MODEM_SIDE='front'
+PISTON_SIDE='top'
+CESU_SIDE='right'
+KWG_SIDE='back'
+NAME='windgen_0' --TODO edit
+
+os.loadAPI('/lib/slot_sig')
+
+-------- END CONFIG -------
+
+nextTimer=0
+isCesuLoading=true
+
+function getCesuLoad()
+	return peripheral.call(CESU_SIDE, 'getEUStored')
+end
+
+function onRednet(data)
+	local sender=data[1]
+	local mess=data[2]
+
+	if(mess.type == 'query') then --else ignore
+		local outMsg = {}
+		outMsg.type = 'kwg_answer'
+		outMsg.query = mess.query
+
+		if(mess.query == 'cesu_load') then
+			outMsg.val = getCesuLoad()
+		elseif(mess.query == 'state') then
+			outMsg.val = isCesuLoading
+		elseif(mess.query == 'energy_prod') then
+			outMsg.val = (1/4) * (peripheral.call(KWG_SIDE, 'getMaxKineticEnergy'))
+		elseif(mess.query == 'rotor_dmg_percent') then
+			local kwg = peripheral.wrap(KWG_SIDE)
+			local rotor = kwg.getStackInSlot(1)
+			outMsg.val = 100 * (rotor.dmg / rotor.max_dmg)
+		end
+
+		rednet.send(sender, outMsg)
+	end
+end
+
+function mainLoop(data)
+	if(data[1] ~= nextTimer) then
+		return
+	end
+
+	local cesuLoadPercent = 100 * getCesuLoad()/(peripheral.call(CESU_SIDE, 'getEUCapacity'))
+	if(isCesuLoading == true and cesuLoadPercent > 95.0) then
+		isCesuLoading=false
+		redstone.setOutput(PISTON_SIDE, true)
+	elseif(isCesuLoading == false and cesuLoadPercent < 20.0) then
+		isCesuLoading=true
+		redstone.setOutput(PISTON_SIDE, false)
+	end
+
+	nextTimer = os.startTimer(5)
+end
+
+function main()
+	slot_sig.connectSlot('rednet_message', onRednet)
+	slot_sig.connectSlot('timer', mainLoop)
+	rednet.open(MODEM_SIDE)
+	rednet.host('kwg',NAME)
+
+	nextTimer = os.startTimer(5)
+	slot_sig.run()
+end
+
