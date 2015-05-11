@@ -1,0 +1,195 @@
+-- APC code by Tobast. Intended for setup (from front) :
+--         [ screen ]
+-- [batbox][computer][batbox]
+
+------------------ CONFIG --------------------
+AREA_NAME=''
+BATBOX_LIGHTS_SIDE='left'
+BATBOX_OTHERS_SIDE='right'
+SCREEN_SIDE='top'
+MODEM_SIDE='bottom'
+----------------- END CONFIG -----------------
+
+os.loadAPI('/lib/slot_sig')
+os.loadAPI('/lib/button')
+
+STATE_ON = 0
+STATE_OFF = 1
+STATE_FORCEOFF = 2
+
+state_lights = 0
+state_others = 0
+
+nextUpdateTimer = nil
+
+function onBtnLightsClicked()
+	if(state_lights == STATE_ON) then
+		setBatboxState(false, BATBOX_LIGHTS_SIDE, false)
+	else
+		setBatboxState(true, BATBOX_LIGHTS_SIDE, false)
+	end
+end
+
+function onBtnOthersClicked()
+	if(state_others == STATE_ON) then
+		setBatboxState(false, BATBOX_OTHERS_SIDE, false)
+	else
+		setBatboxState(true, BATBOX_OTHERS_SIDE, false)
+	end
+end
+
+btn_lights = button.Button(SCREEN_SIDE, 8, 1, '', onBtnLightsClicked)
+btn_others = button.Button(SCREEN_SIDE, 8, 6, '', onBtnOthersClicked)
+
+function getEUStored(side)
+	periph = peripheral.wrap(side)
+	return periph.getEUStored()
+end
+
+function getPercentage(side)
+	periph = peripheral.wrap(side)
+	return math.floor(periph.getEUStored() / periph.getEUCapacity() * 100)
+end
+
+function onLevelsQuery(requester)
+	data = {}
+	data.type='EU_levels'
+	data.area=AREA_NAME
+	data.lights = getEUStored(BATBOX_LIGHTS_SIDE)
+	data.lightsPercent = getPercentage(BATBOX_LIGHTS_SIDE)
+	data.others = getEUStored(BATBOX_OTHERS_SIDE)
+	data.othersPercent = getPercentage(BATBOX_OTHERS_SIDE)
+	data.lightsState = state_lights
+	data.othersState = state_others
+
+	rednet.send(requester, data, 'apc_eu_reply')
+end
+
+function setBatboxState(nState, side, isForceShutdown)
+	redstone.setOutput(side, not nState)
+
+	setButtonState(side, nState, isForceShutdown)
+end
+	
+function setButtonState(side, nState, isForceShutdown)
+	color=nil
+	text=''
+	if nState==true then
+		color = colors.lime
+		text=' ON  '
+		if(side == BATBOX_LIGHTS_SIDE) then
+			state_lights = STATE_ON
+		else
+			state_others = STATE_ON
+		end
+	elseif isForceShutdown then
+		color = colors.red
+		text=' OFF '
+		if(side == BATBOX_LIGHTS_SIDE) then
+			state_lights = STATE_FORCEOFF
+		else
+			state_others = STATE_FORCEOFF
+		end
+	else
+		color = colors.orange
+		text=' OFF '
+
+		if(side == BATBOX_LIGHTS_SIDE) then
+			state_lights = STATE_OFF
+		else
+			state_others = STATE_OFF
+		end
+	end
+
+	if(side == BATBOX_LIGHTS_SIDE) then
+		btn_lights:setBgColor(color)
+		btn_lights:setText(text)
+	else
+		btn_others:setBgColor(color)
+		btn_others:setText(text)
+	end
+end
+
+function setStates(data)
+	setBatboxState(data.lightsState, BATBOX_LIGHTS_SIDE, data.forceLights)
+	setBatboxState(data.othersState, BATBOX_OTHERS_SIDE, data.forceOthers)
+end
+
+function onRednet(input)
+	sender = input[1]
+	data = input[2]
+	
+	if(type(data) == 'string') then
+		data = textutils.unserialize(data)
+	end
+	
+	if(data.type == 'levels_query') then
+		onLevelsQuery(sender)
+	elseif(data.type == 'set_state') then
+		setStates(data)
+	end
+end
+
+function initStates()
+	setButtonState(BATBOX_LIGHTS_SIDE,
+		not redstone.getOutput(BATBOX_LIGHTS_SIDE), false)
+	setButtonState(BATBOX_OTHERS_SIDE,
+		not redstone.getOutput(BATBOX_OTHERS_SIDE), false)
+end
+
+function periodicUpdate()
+	mainScreen()
+end
+
+function onTimer(data)
+	id = data[1]
+	if(id == nextUpdateTimer) then
+		periodicUpdate()
+		nextUpdateTimer = os.startTimer(5)
+	end
+end
+
+function mainScreen()
+	scr = peripheral.wrap(SCREEN_SIDE)
+	
+	scr.setCursorPos(1,1)
+	scr.setTextColor(colors.lightBlue)
+	scr.write('LIGHTS')
+	scr.setTextColor(colors.white)
+	scr.setCursorPos(3,2)
+	scr.write(getPercentage(BATBOX_LIGHTS_SIDE))
+	scr.write('%  ')
+	scr.setCursorPos(3,3)
+	scr.write(getEUStored(BATBOX_LIGHTS_SIDE))
+	scr.write('EU')
+
+	scr.setCursorPos(1,6)
+	scr.setTextColor(colors.lightBlue)
+	scr.write('OTHERS')
+	scr.setTextColor(colors.white)
+	scr.setCursorPos(3,7)
+	scr.write(getPercentage(BATBOX_OTHERS_SIDE))
+	scr.write('%  ')
+	scr.setCursorPos(3,8)
+	scr.write(getEUStored(BATBOX_OTHERS_SIDE))
+	scr.write('EU')
+end
+
+function main()
+	rednet.open(MODEM_SIDE)
+	rednet.host('apc',AREA_NAME)
+
+	peripheral.call(SCREEN_SIDE, 'clear')
+	peripheral.call(SCREEN_SIDE, 'setTextScale', 0.5)
+	
+	initStates()
+	mainScreen()
+
+	nextUpdateTimer = os.startTimer(5)
+
+	slot_sig.connectSlot('rednet_message',onRednet)
+	slot_sig.connectSlot('timer', onTimer)
+
+	slot_sig.run()
+end
+main()
