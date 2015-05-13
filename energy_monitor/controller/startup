@@ -62,7 +62,11 @@ function displayUpdate(sender,data)
 	
 	for k,name in pairs(apcList[sender].networks) do
 		screen.setCursorPos(pos.x + 5, pos.y+k)
-		screen.write(name..' '..formatPercent(data.levels[name]))
+		screen.write(name..' '..formatPercent(data.levels[name].percent))
+
+		local state=data.levels[name].state
+		apcList[sender].buttons[netName]:setText(STATE_BTN[state].text)
+		apcList[sender].buttons[netName]:setBgColor(STATE_BTN[state].color)
 	end
 end
 
@@ -104,7 +108,8 @@ function mapID(sender)
 			for k,name in pairs(apcList[sender].networks) do
 				apcList[sender].buttons[name] = button.Button(MONITOR_SIDE,
 					pos.x+1, pos.y+k, '   ', 
-					function() buttonClicked(sender,name) end)
+					function() buttonClicked(sender,name) end,
+					colors.white, colors.blue)
 			end
 			return
 		end
