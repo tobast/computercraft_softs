@@ -105,6 +105,10 @@ RECIPES[NAMES_ENUM['iron']] = { tool='raw' }
 RECIPES[NAMES_ENUM['rubber']] = { tool='raw' }
 RECIPES[NAMES_ENUM['copper']] = { tool='raw' }
 RECIPES[NAMES_ENUM['redstone']] = { tool='raw' }
+RECIPES[NAMES_ENUM['small_power_unit']] = { tool='craft', recipe= {
+	{1,NAMES_ENUM['copper_cable'],NAMES_ENUM['iron_casing']},
+	{NAMES_ENUM['re_batt'],NAMES_ENUM['elec_circ'],NAMES_ENUM['elec_motor']},
+	{1,NAMES_ENUM['copper_cable'],NAMES_ENUM['iron_casing']}}}
 
 --=================== END CONSTANTS ========================--
 
