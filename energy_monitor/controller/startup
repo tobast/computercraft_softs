@@ -109,7 +109,7 @@ function mapID(sender)
 				apcList[sender].buttons[name] = button.Button(MONITOR_SIDE,
 					pos.x+1, pos.y+k, '   ', 
 					function() buttonClicked(sender,name) end,
-					colors.white, colors.blue)
+					colors.blue, colors.white)
 			end
 			return
 		end

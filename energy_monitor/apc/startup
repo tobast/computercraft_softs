@@ -47,10 +47,10 @@ function onLevelsQuery(requester)
 	local data = {}
 	data.type='EU_levels'
 	data.area=AREA_NAME
-	
+	data.levels={}
 
 	for k,v in pairs(E_NETWORKS) do
-		data.levels.k = { EU = getEUStored(v.side),
+		data.levels[k] = { EU = getEUStored(v.side),
 			percent = getPercentage(v.side),
 			state = v.state }
 	end
@@ -130,6 +130,7 @@ function initStates()
 		end
 
 		setButtonState(v, nState)
+			not redstone.getOutput(v.side))
 	end
 end
 
@@ -158,7 +159,7 @@ function mainScreen(once)
 
 		if(once == true) then -- First run - init buttons
 			cx,cy = scr.getCursorPos()
-			v.btn = button.Button(SCREEN_SIDE, cx+1, xy, '     ',
+			v.btn = button.Button(SCREEN_SIDE, cx+1, cy, '     ',
 				function() onButtonClicked(E_NETWORKS[k]) end)
 		end
 
