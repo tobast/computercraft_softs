@@ -73,7 +73,6 @@ function onRednet(data)
 
 	if(remPackets == 0) then
 		displayResults()
-		results={}
 	end
 end
 
@@ -81,6 +80,9 @@ function mainLoop(data)
 	if(data[1] ~= nextTimer) then
 		return
 	end
+
+	remPackets=0
+	results={}
 
 	if(iterId == 0) then
 		windgens[1],windgens[2],windgens[3],windgens[4],windgens[5],windgens[6]=rednet.lookup('kwg')
