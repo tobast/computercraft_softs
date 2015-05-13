@@ -122,8 +122,14 @@ end
 
 function initStates()
 	for k,v in pairs(E_NETWORKS) do
-		setButtonState(v,
-			not redstone.getOutput(v.side), false)
+		local nState=0
+		if(redstone.getOutput(v.side) == true) then
+			nState=STATE_OFF
+		else
+			nState=STATE_ON
+		end
+
+		setButtonState(v, nState)
 	end
 end
 
