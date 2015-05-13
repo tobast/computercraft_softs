@@ -4,8 +4,7 @@
 
 ------------------ CONFIG --------------------
 AREA_NAME=''
-BATBOX_LIGHTS_SIDE='left'
-BATBOX_OTHERS_SIDE='right'
+E_NETWORKS={lights={side='left'}, machines={side='right'}}
 SCREEN_SIDE='top'
 MODEM_SIDE='bottom'
 ----------------- END CONFIG -----------------
@@ -17,110 +16,92 @@ STATE_ON = 0
 STATE_OFF = 1
 STATE_FORCEOFF = 2
 
-state_lights = 0
-state_others = 0
+for k,v in pairs(E_NETWORKS) do
+	E_NETWORKS[k].state=STATE_ON
+	E_NETWORKS[k].btn=nil
+end
 
 nextUpdateTimer = nil
 
-function onBtnLightsClicked()
-	if(state_lights == STATE_ON) then
-		setBatboxState(false, BATBOX_LIGHTS_SIDE, false)
+function onButtonClicked(net)
+	local nState=0
+	if(net.state == STATE_ON) then
+		nState=STATE_OFF
 	else
-		setBatboxState(true, BATBOX_LIGHTS_SIDE, false)
+		nState=STATE_ON
 	end
+	setBatboxState(nState, net)
 end
-
-function onBtnOthersClicked()
-	if(state_others == STATE_ON) then
-		setBatboxState(false, BATBOX_OTHERS_SIDE, false)
-	else
-		setBatboxState(true, BATBOX_OTHERS_SIDE, false)
-	end
-end
-
-btn_lights = button.Button(SCREEN_SIDE, 8, 1, '', onBtnLightsClicked)
-btn_others = button.Button(SCREEN_SIDE, 8, 6, '', onBtnOthersClicked)
 
 function getEUStored(side)
-	periph = peripheral.wrap(side)
+	local periph = peripheral.wrap(side)
 	return periph.getEUStored()
 end
 
 function getPercentage(side)
-	periph = peripheral.wrap(side)
+	local periph = peripheral.wrap(side)
 	return math.floor(periph.getEUStored() / periph.getEUCapacity() * 100)
 end
 
 function onLevelsQuery(requester)
-	data = {}
+	local data = {}
 	data.type='EU_levels'
 	data.area=AREA_NAME
-	data.lights = getEUStored(BATBOX_LIGHTS_SIDE)
-	data.lightsPercent = getPercentage(BATBOX_LIGHTS_SIDE)
 	
-	if(BATBOX_OTHERS_SIDE ~= nil) then
-		data.others = getEUStored(BATBOX_OTHERS_SIDE)
-		data.othersPercent = getPercentage(BATBOX_OTHERS_SIDE)
+
+	for k,v in pairs(E_NETWORKS) do
+		data.levels.k = { EU = getEUStored(v.side),
+			percent = getPercentage(v.side),
+			state = v.state }
 	end
-	data.lightsState = state_lights
-	data.othersState = state_others
 
 	rednet.send(requester, data, 'apc_eu_reply')
 end
 
-function setBatboxState(nState, side, isForceShutdown)
-	redstone.setOutput(side, not nState)
-
-	setButtonState(side, nState, isForceShutdown)
+function setBatboxState(nState, net)
+	redstone.setOutput(net.side, (nState > 0))
+	setButtonState(net, nState)
 end
 	
-function setButtonState(side, nState, isForceShutdown)
-	color=nil
-	text=''
-	if nState==true then
-		color = colors.lime
+function setButtonState(net, nState)
+	if(nState < 0 or nState > 2) then
+		return
+	end
+
+	local color=nil
+	local text=''
+
+	if(nState == STATE_ON) then
 		text=' ON  '
-		if(side == BATBOX_LIGHTS_SIDE) then
-			state_lights = STATE_ON
-		else
-			state_others = STATE_ON
-		end
-	elseif isForceShutdown then
-		color = colors.red
+		color=colors.lime
+	elseif(nState == STATE_OFF) then
 		text=' OFF '
-		if(side == BATBOX_LIGHTS_SIDE) then
-			state_lights = STATE_FORCEOFF
-		else
-			state_others = STATE_FORCEOFF
-		end
+		color=colors.orange
 	else
-		color = colors.orange
 		text=' OFF '
-
-		if(side == BATBOX_LIGHTS_SIDE) then
-			state_lights = STATE_OFF
-		else
-			state_others = STATE_OFF
-		end
+		color=colors.red
 	end
 
-	if(side == BATBOX_LIGHTS_SIDE) then
-		btn_lights:setBgColor(color)
-		btn_lights:setText(text)
-	elseif(BATBOX_OTHERS_SIDE ~= nil) then
-		btn_others:setBgColor(color)
-		btn_others:setText(text)
-	end
+	net.btn:setBgColor(color)
+	net.btn:setText(text)
+	net.state=nState
 end
 
 function setStates(data)
-	setBatboxState(data.lightsState, BATBOX_LIGHTS_SIDE, data.forceLights)
-	setBatboxState(data.othersState, BATBOX_OTHERS_SIDE, data.forceOthers)
+	if(data.states == nil or type(data.states) ~= 'table') then
+		return
+	end
+
+	for k,v in pairs(data.states) do
+		if(E_NETWORKS[k] ~= nil) then
+			setBatboxState(v, E_NETWORKS[k])
+		end
+	end
 end
 
 function onRednet(input)
-	sender = input[1]
-	data = input[2]
+	local sender = input[1]
+	local data = input[2]
 	
 	if(type(data) == 'string') then
 		data = textutils.unserialize(data)
@@ -130,15 +111,19 @@ function onRednet(input)
 		onLevelsQuery(sender)
 	elseif(data.type == 'set_state') then
 		setStates(data)
+	elseif(data.type == 'get_names') then
+		local netNames = {}
+		for k,_ in pairs(E_NETWORKS) do
+			netNames[#netNames+1] = k
+		end
+		rednet.send(sender, {type='get_names', area=AREA_NAME, names=netNames})
 	end
 end
 
 function initStates()
-	setButtonState(BATBOX_LIGHTS_SIDE,
-		not redstone.getOutput(BATBOX_LIGHTS_SIDE), false)
-	if(BATBOX_OTHERS_SIDE ~= nil) then
-		setButtonState(BATBOX_OTHERS_SIDE,
-			not redstone.getOutput(BATBOX_OTHERS_SIDE), false)
+	for k,v in pairs(E_NETWORKS) do
+		setButtonState(v,
+			not redstone.getOutput(v.side), false)
 	end
 end
 
@@ -147,38 +132,42 @@ function periodicUpdate()
 end
 
 function onTimer(data)
-	id = data[1]
+	local id = data[1]
 	if(id == nextUpdateTimer) then
 		periodicUpdate()
 		nextUpdateTimer = os.startTimer(5)
 	end
 end
 
-function mainScreen()
-	scr = peripheral.wrap(SCREEN_SIDE)
+function mainScreen(once)
+	local scr = peripheral.wrap(SCREEN_SIDE)
+	local x=1
+	local y=1
+	local maxX,maxY=scr.getSize()
 	
-	scr.setCursorPos(1,1)
-	scr.setTextColor(colors.lightBlue)
-	scr.write('LIGHTS')
-	scr.setTextColor(colors.white)
-	scr.setCursorPos(3,2)
-	scr.write(getPercentage(BATBOX_LIGHTS_SIDE))
-	scr.write('%  ')
-	scr.setCursorPos(3,3)
-	scr.write(getEUStored(BATBOX_LIGHTS_SIDE))
-	scr.write('EU')
-
-	if(BATBOX_OTHERS_SIDE ~= nil) then
-		scr.setCursorPos(1,6)
+	for k,v in pairs(E_NETWORKS) do
+		scr.setCursorPos(x,y)
 		scr.setTextColor(colors.lightBlue)
-		scr.write('OTHERS')
+		scr.write(string.upper(k))
+
+		if(once == true) then -- First run - init buttons
+			cx,cy = scr.getCursorPos()
+			v.btn = button.Button(SCREEN_SIDE, cx+1, xy, '     ',
+				function() onButtonClicked(E_NETWORKS[k]) end)
+		end
+
 		scr.setTextColor(colors.white)
-		scr.setCursorPos(3,7)
-		scr.write(getPercentage(BATBOX_OTHERS_SIDE))
+		scr.setCursorPos(x+2,y+1)
+		scr.write(getPercentage(v.side))
 		scr.write('%  ')
-		scr.setCursorPos(3,8)
-		scr.write(getEUStored(BATBOX_OTHERS_SIDE))
+		scr.setCursorPos(x+2,y+2)
+		scr.write(getEUStored(_SIDE))
 		scr.write('EU')
+		y = y+3
+		
+		if(y+2 > maxY) then
+			x = x+16
+		end
 	end
 end
 
@@ -189,8 +178,8 @@ function main()
 	peripheral.call(SCREEN_SIDE, 'clear')
 	peripheral.call(SCREEN_SIDE, 'setTextScale', 0.5)
 	
+	mainScreen(true)
 	initStates()
-	mainScreen()
 
 	nextUpdateTimer = os.startTimer(5)
 
