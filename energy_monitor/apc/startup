@@ -161,7 +161,7 @@ function mainScreen(once)
 		scr.write(getPercentage(v.side))
 		scr.write('%  ')
 		scr.setCursorPos(x+2,y+2)
-		scr.write(getEUStored(_SIDE))
+		scr.write(getEUStored(v.side))
 		scr.write('EU')
 		y = y+3
 		
