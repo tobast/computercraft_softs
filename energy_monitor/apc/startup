@@ -130,7 +130,6 @@ function initStates()
 		end
 
 		setButtonState(v, nState)
-			not redstone.getOutput(v.side))
 	end
 end
 
