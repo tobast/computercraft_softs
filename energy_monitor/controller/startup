@@ -65,8 +65,8 @@ function displayUpdate(sender,data)
 		screen.write(name..' '..formatPercent(data.levels[name].percent))
 
 		local state=data.levels[name].state
-		apcList[sender].buttons[netName]:setText(STATE_BTN[state].text)
-		apcList[sender].buttons[netName]:setBgColor(STATE_BTN[state].color)
+		apcList[sender].buttons[name]:setText(STATE_BTN[state].text)
+		apcList[sender].buttons[name]:setBgColor(STATE_BTN[state].color)
 	end
 end
 
@@ -132,7 +132,6 @@ function recvName(data)
 	mapID(sender)
 end
 function refreshAPCList()
-	print('Called')
 	local screen=peripheral.wrap(MONITOR_SIDE)
 	local wid,hei = screen.getSize()
 	bottomSpaces={}
