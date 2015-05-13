@@ -50,6 +50,7 @@ end
 
 --- Runs the main loop of the program.
 function run()
+	os.queueEvent('slot_sig_run')
 	while not quitRequired do
 		a = {}
 		evt,a[1],a[2],a[3],a[4],a[5] = os.pullEvent()

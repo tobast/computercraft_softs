@@ -90,7 +90,7 @@ end
 
 bottomSpaces={}
 function mapID(sender)
-	local wid,hei = peripheral.call(MONITOR_SIDE, getSize)
+	local wid,hei = peripheral.call(MONITOR_SIDE, 'getSize')
 	local reqSpace = #(apcList[sender].networks) + 1
 
 	for col,space in pairs(bottomSpaces) do
@@ -122,11 +122,12 @@ function recvName(data)
 	local sender=data[1]
 	local msg=data[2]
 
-	apcList[sender].area = data.area
-	apcList[sender].networks = data.names
+	apcList[sender].area = msg.area
+	apcList[sender].networks = msg.names
 	mapID(sender)
 end
 function refreshAPCList()
+	print('Called')
 	local screen=peripheral.wrap(MONITOR_SIDE)
 	local wid,hei = screen.getSize()
 	bottomSpaces={}
@@ -159,8 +160,7 @@ function main()
 	initMonitor()
 	slot_sig.connectSlot('rednet_message', onRednet)
 	slot_sig.connectSlot('timer', onTimer)
-
-	refreshAPCList()
+	slot_sig.connectSlot('slot_sig_run',refreshAPCList)
 
 	slot_sig.run()
 end
