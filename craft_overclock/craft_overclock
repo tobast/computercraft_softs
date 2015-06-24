@@ -6,7 +6,8 @@ function getItem(item, num, toSlot, simulate)
 	local size = chest.getInventorySize()
 	for slot=1,size do
 		local stack = chest.getStackInSlot(slot)
-		if(stack.raw_name == item) then
+
+		if(stack ~= nil and stack.raw_name == item) then
 			if(stack.qty < num) then
 				return -1
 			else
