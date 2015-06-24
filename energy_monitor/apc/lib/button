@@ -1,0 +1,71 @@
+
+os.loadAPI('/lib/slot_sig')
+
+function Button(side,x,y,text,cb,bg,fg)
+	if fg == nil then
+		fg = colors.black
+	end
+	if bg == nil then
+		fg = colors.white
+	end
+	obj = {
+		side=side,
+		x=x,
+		y=y,
+		text=text,
+		bgColor=bg,
+		fgColor=fg,
+		callback=cb
+	}
+	
+	if(side=='term') then
+		obj.device = term
+	else
+		obj.device = peripheral.wrap(side)
+	end
+
+	function obj:draw()
+		self.device.setCursorPos(self.x, self.y)
+		self.device.setTextColor(self.fgColor)
+		self.device.setBackgroundColor(self.bgColor)
+
+		self.device.write(self.text)
+
+		self.device.setTextColor(colors.white)
+		self.device.setBackgroundColor(colors.black)
+	end
+
+	function obj:setText(nText)
+		self.text = nText
+		self:draw()
+	end
+	function obj:setBgColor(color)
+		self.bgColor=color
+		self:draw()
+	end
+	function obj:setFgColor(color)
+		self.fgColor = color
+		self:draw()
+	end
+
+	function obj:onTermClick(data)
+		--TODO
+	end
+	function obj:onClick(data)
+		if(data[1] == self.side) then
+			x = data[2]
+			y = data[3]
+			if (x >= self.x and y == self.y and x < (self.x + string.len(self.text))) then
+				self.callback(data)
+			end
+		end
+	end
+	
+	if(device == term) then
+		slot_sig.connectSlot('mouse_click', obj.onTermClick, obj)
+	else
+		slot_sig.connectSlot('monitor_touch', obj.onClick, obj)
+	end
+
+	return obj
+end

@@ -1,0 +1,172 @@
+-- Controls the APCs through network
+
+------------------- CONFIGURATION ------------------------
+MODEM_SIDE = 'back'
+MONITOR_SIDE = 'left'
+REFRESH_RATE = 10 -- in seconds
+------------------- END CONFIG ---------------------------
+
+os.loadAPI('/lib/slot_sig')
+os.loadAPI('/lib/button')
+
+apcList = {}
+idPosition = {}
+buttons = {}
+nextTimer = nil
+
+STATE_ON = 0
+STATE_OFF = 1
+STATE_FORCEOFF = 2
+STATE_BTN = {
+	[0] = {text = 'ON ', color = colors.lime},
+	[1] = {text = 'OFF', color = colors.orange},
+	[2] = {text = 'OFF', color = colors.red}
+}
+
+function onRednet(data)
+	sender = data[1]
+	message = data[2]
+
+	if(message.type == 'EU_levels') then
+		displayUpdate(sender,message)
+	elseif(message.type == 'get_names') then
+		recvName(data)
+	end
+end
+
+function onTimer(data)
+	id=data[1]
+	if(id ~= nextTimer) then
+		return
+	end
+	
+	updateData()
+
+	nextTimer = os.startTimer(REFRESH_RATE)
+end
+
+function formatPercent(perc)
+	if(perc >= 100) then
+		return '100%'
+	else
+		return perc..'%'
+	end
+end
+function displayUpdate(sender,data)
+	local pos = apcList[sender].screenPos
+	local screen = peripheral.wrap(MONITOR_SIDE)
+	screen.setCursorPos(pos.x, pos.y)
+	screen.setTextColor(colors.lightBlue)
+	screen.write(string.upper(apcList[sender].area))
+	screen.setTextColor(colors.white)
+	
+	for k,name in pairs(apcList[sender].networks) do
+		screen.setCursorPos(pos.x + 5, pos.y+k)
+		screen.write(name..' '..formatPercent(data.levels[name].percent))
+
+		local state=data.levels[name].state
+		apcList[sender].buttons[name]:setText(STATE_BTN[state].text)
+		apcList[sender].buttons[name]:setBgColor(STATE_BTN[state].color)
+	end
+end
+
+function updateData()
+	for id,_ in pairs(apcList) do
+		rednet.send(id, {type = 'levels_query'})
+	end
+end
+
+function buttonClicked(sender,netName)
+	local isOn = (apcList[sender].buttons[netName].text == 'ON ')
+	local nState = 0
+	if(isOn == true) then
+		nState = STATE_OFF
+	else
+		nState = STATE_ON
+	end
+
+	local msg = { type = 'set_state',
+		states = { [netName] = nState } }
+	rednet.send(sender, msg)
+
+	rednet.send(sender, {type='levels_query'})
+end
+
+bottomSpaces={}
+function mapID(sender)
+	local wid,hei = peripheral.call(MONITOR_SIDE, 'getSize')
+	local reqSpace = #(apcList[sender].networks) + 1
+
+	for col,space in pairs(bottomSpaces) do
+		if(space >= reqSpace) then
+			apcList[sender].screenPos = {
+				x = 1+18*(col-1),
+				y = hei + 1 - space }
+			bottomSpaces[col] = space - reqSpace
+
+			local pos = apcList[sender].screenPos
+			for k,name in pairs(apcList[sender].networks) do
+				apcList[sender].buttons[name] = button.Button(MONITOR_SIDE,
+					pos.x+1, pos.y+k, '   ', 
+					function() buttonClicked(sender,name) end,
+					colors.blue, colors.white)
+			end
+			return
+		end
+	end
+
+	-- If we reach this point, there's not enough space on screen.
+	local screen = peripheral.wrap(MONITOR_SIDE)
+	screen.clear()
+	screen.setCursorPos(1,1)
+	screen.write("SCREEN TOO SMALL")
+	nofunc() -- Make it call nil, to crash.
+end
+
+function recvName(data)
+	local sender=data[1]
+	local msg=data[2]
+
+	apcList[sender].area = msg.area
+	apcList[sender].networks = msg.names
+	mapID(sender)
+end
+function refreshAPCList()
+	local screen=peripheral.wrap(MONITOR_SIDE)
+	local wid,hei = screen.getSize()
+	bottomSpaces={}
+	for col=1,math.floor(wid/18) do
+		bottomSpaces[col]=hei
+	end
+
+	local lookup = { rednet.lookup('apc') }
+	apcList = {}
+	for k,v in pairs(lookup) do
+		apcList[v] = {
+			area="",
+			networks={},
+			buttons={},
+			screenPos=nil}
+		rednet.send(v, {type='get_names'})
+	end
+
+	nextTimer = os.startTimer(REFRESH_RATE)
+end
+
+function initMonitor()
+	monitor = peripheral.wrap(MONITOR_SIDE)
+	monitor.clear()
+	monitor.setTextScale(0.5)
+end
+function main()
+	rednet.open(MODEM_SIDE)
+	rednet.host('energy_controller', 'controller')
+	initMonitor()
+	slot_sig.connectSlot('rednet_message', onRednet)
+	slot_sig.connectSlot('timer', onTimer)
+	slot_sig.connectSlot('slot_sig_run',refreshAPCList)
+
+	slot_sig.run()
+end
+
+main()

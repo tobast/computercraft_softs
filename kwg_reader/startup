@@ -1,0 +1,110 @@
+--[[
+	Reads from rednet, and displays data about KWGs using kwg_controller
+--]]
+
+MODEM_SIDE='left'
+SCREEN_SIDE='top'
+QUERY_TYPES={'name','state','energy_prod','rotor_dmg_percent'}
+
+---------- END CONFIG ---------
+os.loadAPI('/lib/slot_sig')
+nextTimer = 0
+iterId=0
+windgens={}
+results={}
+remPackets=0
+
+function truncate(num, prec)
+	local mult = 10^(prec or 0)
+	return math.floor(num * mult + 0.5) / mult
+end
+
+function displayResults()
+	local screen = peripheral.wrap(SCREEN_SIDE)
+	screen.clear()
+	screen.setCursorPos(1,1)
+
+	for _,wg in pairs(results) do
+		screen.write(wg.name)
+		local x,y=screen.getCursorPos()
+		screen.setCursorPos(2,y+1)
+		screen.write("Prod: ")
+		screen.write(wg.energy_prod)
+		screen.write(" EU/t")
+		screen.setCursorPos(2,y+2)
+		
+		screen.write("Stopped: ")
+		if(wg.state == false) then
+			screen.write("YES")
+		else
+			screen.write("NO")
+		end
+		screen.setCursorPos(2,y+3)
+
+		screen.write("Rotor: ")
+		screen.write(truncate(wg.rotor_dmg_percent, 6))
+		screen.write("%")
+
+		screen.setCursorPos(1,y+5)
+	end
+end
+
+function onRednet(data)
+	local sender=data[1]
+	local msg=data[2]
+
+	if(msg.type ~= 'kwg_answer' or msg.query == nil) then
+		return
+	end
+	
+	local wgId = nil
+	for k,wg in pairs(windgens) do
+		if(wg == sender) then
+			wgId=k
+			break
+		end
+	end
+	if(wgId == nil) then
+		return
+	end
+
+	results[wgId] = msg
+	remPackets = remPackets - 1
+
+	if(remPackets == 0) then
+		displayResults()
+	end
+end
+
+function mainLoop(data)
+	if(data[1] ~= nextTimer) then
+		return
+	end
+
+	remPackets=0
+	results={}
+
+	if(iterId == 0) then
+		windgens[1],windgens[2],windgens[3],windgens[4],windgens[5],windgens[6]=rednet.lookup('kwg')
+	end
+
+	for k,wg in pairs(windgens) do
+		rednet.send(wg, {type='query', query='all'})
+		remPackets = remPackets+1
+	end
+
+	iterId=iterId % 10
+	nextTimer = os.startTimer(3)
+end
+
+function main()
+	rednet.open(MODEM_SIDE)
+
+	slot_sig.connectSlot('rednet_message', onRednet)
+	slot_sig.connectSlot('timer', mainLoop)
+
+	nextTimer = os.startTimer(1)
+	slot_sig.run()
+end
+
+main()

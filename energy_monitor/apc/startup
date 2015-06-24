@@ -1,0 +1,197 @@
+-- APC code by Tobast. Intended for setup (from front) :
+--         [ screen ]
+-- [batbox][computer][batbox]
+
+------------------ CONFIG --------------------
+AREA_NAME=''
+E_NETWORKS={lights={side='left'}, machines={side='right'}}
+SCREEN_SIDE='top'
+MODEM_SIDE='bottom'
+----------------- END CONFIG -----------------
+
+os.loadAPI('/lib/slot_sig')
+os.loadAPI('/lib/button')
+
+STATE_ON = 0
+STATE_OFF = 1
+STATE_FORCEOFF = 2
+
+for k,v in pairs(E_NETWORKS) do
+	E_NETWORKS[k].state=STATE_ON
+	E_NETWORKS[k].btn=nil
+end
+
+nextUpdateTimer = nil
+
+function onButtonClicked(net)
+	local nState=0
+	if(net.state == STATE_ON) then
+		nState=STATE_OFF
+	else
+		nState=STATE_ON
+	end
+	setBatboxState(nState, net)
+end
+
+function getEUStored(side)
+	local periph = peripheral.wrap(side)
+	return periph.getEUStored()
+end
+
+function getPercentage(side)
+	local periph = peripheral.wrap(side)
+	return math.floor(periph.getEUStored() / periph.getEUCapacity() * 100)
+end
+
+function onLevelsQuery(requester)
+	local data = {}
+	data.type='EU_levels'
+	data.area=AREA_NAME
+	data.levels={}
+
+	for k,v in pairs(E_NETWORKS) do
+		data.levels[k] = { EU = getEUStored(v.side),
+			percent = getPercentage(v.side),
+			state = v.state }
+	end
+
+	rednet.send(requester, data, 'apc_eu_reply')
+end
+
+function setBatboxState(nState, net)
+	redstone.setOutput(net.side, (nState > 0))
+	setButtonState(net, nState)
+end
+	
+function setButtonState(net, nState)
+	if(nState < 0 or nState > 2) then
+		return
+	end
+
+	local color=nil
+	local text=''
+
+	if(nState == STATE_ON) then
+		text=' ON  '
+		color=colors.lime
+	elseif(nState == STATE_OFF) then
+		text=' OFF '
+		color=colors.orange
+	else
+		text=' OFF '
+		color=colors.red
+	end
+
+	net.btn:setBgColor(color)
+	net.btn:setText(text)
+	net.state=nState
+end
+
+function setStates(data)
+	if(data.states == nil or type(data.states) ~= 'table') then
+		return
+	end
+
+	for k,v in pairs(data.states) do
+		if(E_NETWORKS[k] ~= nil) then
+			setBatboxState(v, E_NETWORKS[k])
+		end
+	end
+end
+
+function onRednet(input)
+	local sender = input[1]
+	local data = input[2]
+	
+	if(type(data) == 'string') then
+		data = textutils.unserialize(data)
+	end
+	
+	if(data.type == 'levels_query') then
+		onLevelsQuery(sender)
+	elseif(data.type == 'set_state') then
+		setStates(data)
+	elseif(data.type == 'get_names') then
+		local netNames = {}
+		for k,_ in pairs(E_NETWORKS) do
+			netNames[#netNames+1] = k
+		end
+		rednet.send(sender, {type='get_names', area=AREA_NAME, names=netNames})
+	end
+end
+
+function initStates()
+	for k,v in pairs(E_NETWORKS) do
+		local nState=0
+		if(redstone.getOutput(v.side) == true) then
+			nState=STATE_OFF
+		else
+			nState=STATE_ON
+		end
+
+		setButtonState(v, nState)
+	end
+end
+
+function periodicUpdate()
+	mainScreen()
+end
+
+function onTimer(data)
+	local id = data[1]
+	if(id == nextUpdateTimer) then
+		periodicUpdate()
+		nextUpdateTimer = os.startTimer(5)
+	end
+end
+
+function mainScreen(once)
+	local scr = peripheral.wrap(SCREEN_SIDE)
+	local x=1
+	local y=1
+	local maxX,maxY=scr.getSize()
+	
+	for k,v in pairs(E_NETWORKS) do
+		scr.setCursorPos(x,y)
+		scr.setTextColor(colors.lightBlue)
+		scr.write(string.upper(k))
+
+		if(once == true) then -- First run - init buttons
+			cx,cy = scr.getCursorPos()
+			v.btn = button.Button(SCREEN_SIDE, cx+1, cy, '     ',
+				function() onButtonClicked(E_NETWORKS[k]) end)
+		end
+
+		scr.setTextColor(colors.white)
+		scr.setCursorPos(x+2,y+1)
+		scr.write(getPercentage(v.side))
+		scr.write('%  ')
+		scr.setCursorPos(x+2,y+2)
+		scr.write(getEUStored(v.side))
+		scr.write('EU')
+		y = y+3
+		
+		if(y+2 > maxY) then
+			x = x+16
+		end
+	end
+end
+
+function main()
+	rednet.open(MODEM_SIDE)
+	rednet.host('apc',AREA_NAME)
+
+	peripheral.call(SCREEN_SIDE, 'clear')
+	peripheral.call(SCREEN_SIDE, 'setTextScale', 0.5)
+	
+	mainScreen(true)
+	initStates()
+
+	nextUpdateTimer = os.startTimer(5)
+
+	slot_sig.connectSlot('rednet_message',onRednet)
+	slot_sig.connectSlot('timer', onTimer)
+
+	slot_sig.run()
+end
+main()

@@ -38,7 +38,8 @@ PROD_LINE_ORIENTATION = 'up' -- the direction the turtle is from the
 RECIPES_NAMES = { 'air','iron_plate','tin_plate','tin_casing','tin_cable',
 	'tin_ins_cable','re_batt','copper_cable','copper_ins_cable',
 	'elec_circ','iron_casing','coil','elec_motor','power_unit',
-	'chainsaw','drill','tin','iron','rubber','copper','redstone' }
+	'chainsaw','drill','tin','iron','rubber','copper','redstone',
+	'small_power_unit'}
 
 NAMES_ENUM = makeEnum(RECIPES_NAMES)
 
@@ -47,13 +48,14 @@ CC_NAMES = {'','ic2.itemplateiron','ic2.itemplatetin','ic2.itemcasingtin',
 	'ic2.itemcableo','ic2.itemcable','ic2.itempartcircuit','ic2.itemcasingiron',
 	'ic2.itempartcoil','ic2.itempartelemotor','ic2.itempowerunit',
 	'ic2.itemtoolchainsaw','ic2.itemtooldrill', 'ic2.itemingottin',
-	'item.ingotiron','ic2.itemrubber','ic2.itemingotcopper','item.redstone'
+	'item.ingotiron','ic2.itemrubber','ic2.itemingotcopper','item.redstone',
+	'ic2.itempowerunitsmall'
 }
 REVERSE_CC_NAMES = makeEnum(CC_NAMES)
 
-STACK_SIZES = {64,64,64,64,64,64,16,64,64,64,64,64,64,64,1,1,64,64,64,64,64}
-CRAFT_RATIO = {1,1,1,2,3,1,1,3,1,1,2,1,1,1,1,1,1,1,1,1,1}
-CRAFT_ORDER = {1,17,18,19,20,21,2,3,4,5,8,11,6,9,7,10,12,13,14,15,16}
+STACK_SIZES = {64,64,64,64,64,64,16,64,64,64,64,64,64,64,1,1,64,64,64,64,64,64}
+CRAFT_RATIO = {1,1,1,2,3,1,1,3,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1}
+CRAFT_ORDER = {1,17,18,19,20,21,2,3,4,5,8,11,6,9,7,10,12,13,14,22,15,16}
 
 RECIPES = {}
 RECIPES[NAMES_ENUM['air']] = { tool='raw' }
@@ -103,6 +105,10 @@ RECIPES[NAMES_ENUM['iron']] = { tool='raw' }
 RECIPES[NAMES_ENUM['rubber']] = { tool='raw' }
 RECIPES[NAMES_ENUM['copper']] = { tool='raw' }
 RECIPES[NAMES_ENUM['redstone']] = { tool='raw' }
+RECIPES[NAMES_ENUM['small_power_unit']] = { tool='craft', recipe= {
+	{1,NAMES_ENUM['copper_cable'],NAMES_ENUM['iron_casing']},
+	{NAMES_ENUM['re_batt'],NAMES_ENUM['elec_circ'],NAMES_ENUM['elec_motor']},
+	{1,NAMES_ENUM['copper_cable'],NAMES_ENUM['iron_casing']}}}
 
 --=================== END CONSTANTS ========================--
 
