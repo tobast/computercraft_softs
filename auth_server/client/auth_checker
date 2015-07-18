@@ -8,20 +8,21 @@
 --]]
 
 ------------- PARAMETERS --------------
-ID_READER_SIDE = 'left'
-MODEM_SIDE='top'
+ID_READER_SIDE = 'top'
+MODEM_SIDE='bottom'
+REDSTONE_SIDE='right'
+local allowed = { users = {}, groups = {}}
 
 function onAllowed()
-	redstone.setOutput('bottom',true)
+	redstone.setOutput(REDSTONE_SIDE,true)
 	sleep(3)
-	redstone.setOutput('bottom',false)
+	redstone.setOutput(REDSTONE_SIDE,false)
 end
 ------------- END PARAMS --------------
 
 os.loadAPI('/lib/sha256')
 os.loadAPI('/lib/slot_sig')
 
-local allowed = {}
 local server = -1
 local nextTimer = nil
 
@@ -42,14 +43,28 @@ end
 
 function onRednet(data)
 	sender = data[1]
-	if(type(data[2]) == 'string') then
-		id = data[2]
 
-		if(sender ~= server) then 
+	mess=nil
+	if(type(data[2]) == 'string') then
+		mess = textutils.unserialize(mess)
+	else
+		mess = data[2]
+	end
+
+	if(mess.type == 'authreply') then
+		if(mess.user == nil) then
 			return
-		else
-			if(allowed[id]) then
+		end
+
+		if(allowed.users[mess.user]) then
+			onAllowed()
+			return
+		end
+
+		for gid=1,#(mess.groups) do
+			if(allowed.groups[mess.groups[gid]]) then
 				onAllowed()
+				return
 			end
 		end
 	end
@@ -57,7 +72,7 @@ end
 
 function requestAuth(hash)
 	if(server == nil) then -- server still not found
-		return true -- Allow login, to allow anyone in
+		onAllowed() -- Allow login, to allow anyone in
 	end
 
 	mess = {}
