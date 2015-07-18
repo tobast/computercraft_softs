@@ -19,6 +19,7 @@ MAINTENANCE_STR='MAINTENANCE'
 ------------- END PARAMS --------------
 
 local hashDb = {}
+local groupsDb = {}
 local id_maker_auth = {} -- set of authorized IDs to create IDs.
 
 os.pullEvent = os.pullEventRaw -- No return to terminal.
@@ -29,9 +30,11 @@ end
 
 function authRequest(senderId, data, distance)
 	if (hashDb[data.hash] ~= nil) then
-		rednetSend(senderId, hashDb[data.hash])
+		rednetSend(senderId, { type='authreply',
+			user = hashDb[data.hash],
+			groups = groupsDb[hashDb[data.hash]] })
 	else
-		rednetSend(senderId, -1)
+		rednetSend(senderId, {type = 'authreply'})
 	end
 end
 
@@ -83,25 +86,129 @@ function createKey()
 	return key
 end
 
-function createID(idName, isMaster)
+function createID(idName)
 	if not(disk.isPresent(ID_MAKER_SIDE)) then
 		printError("ID removed.")
 	end
 	disk.setLabel(ID_MAKER_SIDE, 'ID: '..idName)
-	mountpath = disk.getMountPath(ID_MAKER_SIDE)
-	keyHandle = fs.open(mountpath..'/key', 'w')
+	local mountpath = disk.getMountPath(ID_MAKER_SIDE)
+	local keyHandle = fs.open(mountpath..'/key', 'w')
 
-	key = createKey()
-	hash = sha256.sha256(key)
+	local key = createKey()
+	
+	keyHandle.writeLine(key)
+	keyHandle.close()
+	disk.eject(ID_MAKER_SIDE)
+	return key
+end
+
+function writeIDtoDB(idName, isMaster, groups, key)
+	local hash = sha256.sha256(key)
 
 	hashDb[hash] = idName
 	if(isMaster) then
 		id_maker_auth[idName] = true
 	end
+
+	local groupSplit = {}
+	for grp in groups:gmatch("%S+") do
+		groupSplit[#groupSplit+1] = grp
+	end
+	groupsDb[idName] = groupSplit
+
+	writeDB('/auth/hashdb',hashDb)
+	writeDB('/auth/groupsdb',groupsDb)
+	if(isMaster) then
+		writeDB('/auth/idmakerdb',id_maker_auth)
+	end
+end
+
+function createIdFromScratch()
+	local newId = getInput("Please type in the new ID:")
+	local isMaster = (getInput("Register as master ID (yes/no)?") == 'yes')
+	local groups = getInput("Groups the user belongs to (space separated:")
+	local key = createID(newId)
+	writeIDtoDB(newId, isMaster, groups, key)
+end
+
+function importId()
+	if not(disk.isPresent(ID_MAKER_SIDE)) then
+		printError("No ID to import")
+		return
+	end
+	local path = disk.getMountPath(ID_MAKER_SIDE)
+	if(not fs.exists(path..'/key')) then
+		printError("Not a valid ID disk")
+		return
+	end
+
+	local keyFile = fs.open(path..'/key', 'r')
+	if(keyFile == nil) then
+		printError("Could not read key file")
+		return
+	end
+
+	local key = keyFile.readLine()
+	keyFile.close()
+
+	local newId = getInput("Please type in the new ID:")
+	local isMaster = (getInput("Register as master ID (yes/no)?") == 'yes')
+	local groups = getInput("Groups the user belongs to (space separated:")
+
+	writeIDtoDB(newId, isMaster, groups, key)
+end
+
+function editId()
+	if not(disk.isPresent(ID_MAKER_SIDE)) then
+		printError("No ID to edit")
+		return
+	end
+	local path = disk.getMountPath(ID_MAKER_SIDE)
+	if(not fs.exists(path..'/key')) then
+		printError("Not a valid ID disk")
+		return
+	end
+
+	local keyFile = fs.open(path..'/key', 'r')
+	if(keyFile == nil) then
+		printError("Could not read key file")
+		return
+	end
+
+	local key = keyFile.readLine()
+	keyFile.close()
+	local keyHash = sha256.sha256(key)
+	local idName = hashDb[keyHash]
+
+	if(idName == nil) then
+		printError("Unknown ID :(")
+		return
+	end
+
+	term.setCursorPos(1,5)
+	print("Current groups: ")
+	for _,v in pairs(groupsDb[idName]) do
+		print(v)
+	end
 	
-	keyHandle.writeLine(key)
-	keyHandle.close()
-	disk.eject(ID_MAKER_SIDE)
+	local groups = getInput("New groups (space separated)?")
+	writeIDtoDB(idName, id_maker_auth[idName], groups, key)
+end
+
+function cardActionsMenu()
+	local action = -1
+	while(action < 1 or action > 3) do
+		action = getInput("1) card from scratch ; 2) import card ; 3) edit card ?")
+	end
+
+	if(action == 1) then
+		createIdFromScratch()
+	elseif(action == 2) then
+		importId()
+	elseif(action == 3) then
+		editId()
+	end
+	disk.eject(ID_READER_SIDE)
 end
 
 function onDiskInsert(data)
@@ -112,15 +219,8 @@ function onDiskInsert(data)
 		authorizedId(isAuth)
 	elseif(side == ID_MAKER_SIDE) then
 		if(checkAuth()) then
-			-- Logged in, and creating a new card
-			newId = getInput("Please type in the new ID:")
-			isMaster = (getInput("Register as master ID (yes/no)?") == 'yes')
-			createID(newId, isMaster)
-			disk.eject(ID_READER_SIDE)
-			writeDB('/auth/hashdb',hashDb)
-			if(isMaster) then
-				writeDB('/auth/idmakerdb',id_maker_auth)
-			end
+			-- Logged in, and creating/editing a card
+			cardActionsMenu()
 		else
 			printError("Please insert your ID.")
 			disk.eject(ID_MAKER_SIDE)
@@ -221,6 +321,7 @@ end
 function main()
 	hashDb = loadDB('/auth/hashdb')
 	id_maker_auth = loadDB('/auth/idmakerdb')
+	groupsDb = loadDB('/auth/groupsdb')
 
 	rednet.open(MODEM_SIDE)
 	rednet.host("auth", "server")
@@ -233,4 +334,3 @@ function main()
 	slot_sig.run()
 end
 main()
-
