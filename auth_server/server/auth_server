@@ -185,7 +185,7 @@ function editId()
 		return
 	end
 
-	term.setCursorPos(1,5)
+	term.setCursorPos(1,6)
 	print("Current groups: ")
 	for _,v in pairs(groupsDb[idName]) do
 		print(v)
@@ -193,11 +193,12 @@ function editId()
 	
 	local groups = getInput("New groups (space separated)?")
 	writeIDtoDB(idName, id_maker_auth[idName], groups, key)
+	mainscreen()
 end
 
 function cardActionsMenu()
 	local action = -1
-	while(action < 1 or action > 3) do
+	while(type(action) ~= type(1) or action < 1 or action > 3) do
 		action = tonumber(getInput("1) create ; 2) import ; 3) edit ?"))
 	end
 
