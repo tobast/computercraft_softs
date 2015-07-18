@@ -1,0 +1,22 @@
+REDSTONE_OUT='bottom'
+STACKS_HAZMAT={'ic2.itemarmorhazmathelmet',
+	'ic2.itemarmorhazmatchestplate',
+	'ic2.itemarmorhazmatleggings',
+	'ic2.itemarmorrubboots' }
+
+function checkAS(as)
+	for i=1,4 do
+		if(as.getStackInSlot(i) == nil or
+		   as.getStackInSlot(i).raw_name ~= STACKS_HAZMAT[i]) then
+			return false
+		end
+	end
+	return true
+end
+
+
+local as=peripheral.wrap('top')
+while true do
+	sleep(3)
+	redstone.setOutput(REDSTONE_OUT, checkAS(as))
+end
