@@ -198,7 +198,7 @@ end
 function cardActionsMenu()
 	local action = -1
 	while(action < 1 or action > 3) do
-		action = getInput("1) card from scratch ; 2) import card ; 3) edit card ?")
+		action = tonumber(getInput("1) create ; 2) import ; 3) edit ?"))
 	end
 
 	if(action == 1) then
